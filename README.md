@@ -1,6 +1,8 @@
 # ReinforceTrade
 Author: Songhao LI, MIT Master of Finance
+
 Date: 2020/12/29
+
 A new project based on tensortrade
 
 Why start this new project: 
