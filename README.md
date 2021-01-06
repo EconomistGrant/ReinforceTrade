@@ -26,3 +26,16 @@ Supports TF2.0+, not so easy to start
 
 Stable baselines
 - does not support TF2.0+
+
+
+# 1/5 思考
+第一个要考虑的点是environment
+还是按照之前设计的思路 observation包括市场观察和当前持仓
+action是交易
+
+分两条路去做 一边研究gym这个environment 一边把这个DQN在本地跑通一次试试
+
+刘神建议学习：
+装饰器 https://www.jianshu.com/p/ee82b941772a
+venv
+
