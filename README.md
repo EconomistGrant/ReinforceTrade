@@ -39,3 +39,8 @@ action是交易
 装饰器 https://www.jianshu.com/p/ee82b941772a
 venv
 
+# 1/8 Update
+start working on environment definition
+good reference: 
+https://towardsdatascience.com/creating-a-custom-openai-gym-environment-for-stock-trading-be532be3910e
+https://github.com/notadamking/Stock-Trading-Environment/blob/master/env/StockTradingEnv.py 
