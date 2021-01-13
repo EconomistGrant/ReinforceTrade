@@ -44,3 +44,4 @@ start working on environment definition
 good reference: 
 https://towardsdatascience.com/creating-a-custom-openai-gym-environment-for-stock-trading-be532be3910e
 https://github.com/notadamking/Stock-Trading-Environment/blob/master/env/StockTradingEnv.py 
+https://gym.openai.com/docs/
