@@ -10,28 +10,38 @@ class TradingEnv(gym.Env):
     Data are stored in numpy.array format
     
     
-    Attributes
+    Inputs
     ----------
-    data
-    current_step
-    
-    holding
-    cash
-    nav
+    data:            np.array of shape (num_observation,num_features)
+    close_col:       the column index for the close row in data
+    back_looking:    length of observation window feeding to the agent
+    rf:              risk-free rate
+    initial_capital: initial capital to start learning
 
-    past_holdings: 
-    past_nav
+    Attributes
+    ----------   
+    action_space:      first number: 0 = sell, 1 = hold, 2 = buy
+                       second number: percent of nav as trade size
+    
+    observation_space: inputs features + past holdings + past NAV, all having the length of back_looking
+    current_step:      the timestep/row that the agent is currently at. Agent will observe up to (current_step - 1),
+                       and trade at the end of (current_step - 1), hold until the end of current_step
+    
+    nav,cash,holdings: current portfolio/cash/equity value
+
+    past_holdings, past_nav: portfolio history of length back_looking to be fed into the observation
+    num_observation,num_features: data shape
     """
     def __init__(self,
                  data: np.array, 
-                 rf: float,
-                 initial_capital: float = 10000.0,
                  close_col: int = 1,
-                 back_looking :int = 1,):
+                 back_looking :int = 1,
+                 rf: float = 0.01,
+                 initial_capital: float = 10000.0,
+                 ):
         super(TradingEnv,self).__init__()
 
         #TODO: standardize input
-        
         self.data = data
         self.rf = rf
         self.close_col = close_col
@@ -43,7 +53,7 @@ class TradingEnv(gym.Env):
         self.num_obervation = data.shape[0]
         self.num_features = data.shape[1]
 
-        # first number: 0 = sell, 1 = hold, 2 = buy; second number: percent of nav as trade size
+        # ; 
         #TODO: is there any better way of defining action space?
         self.action_space = gym.spaces.Box(low = np.array([0.0,0.0]), high = np.array([3.0,1.0]), dtype = np.float64) 
 
@@ -52,11 +62,7 @@ class TradingEnv(gym.Env):
 
     
     def _observe(self):
-        """
-        observe rows up to current_step - 1, basically saying you execute the trade for 
-        the current_step using all the information available at the begining of the time
-        price at current_step - 1 is the trade price, hold until the end of current_step
-        """
+        """observe rows up to current_step - 1"""
         obs = np.zeros((self.back_looking,self.num_features+2))
         obs[:,0:self.num_features] = self.data[self.current_step - self.back_looking:self.current_step,:]
         obs[:,-2:-1] = self.past_holdings.reshape((self.back_looking,1))
@@ -97,6 +103,18 @@ class TradingEnv(gym.Env):
         if self._validate_trade(cash, holding*trade_price):
             self.cash = cash
             self.holding = holding
+
+        #update holdings log
+        temp_past_holdings = self.past_holdings
+        self.past_holdings[0:-1] = temp_past_holdings[1:]
+        self.past_holdings[-1] = self.holding
+
+        #update nav log
+        self.cash = self.cash* (1+self.rf)
+        self.nav = self.holding * self.data[self.current_step,self.close_col] + self.cash
+        temp_past_nav = self.past_nav
+        self.past_nav[0:-1] = temp_past_nav[1:]
+        self.past_nav[-1] = self.nav
         
 
         
@@ -106,7 +124,8 @@ class TradingEnv(gym.Env):
         calculate gain from current holings
         TODO: consider discount, trade cost
         """
-        return self.holding*(self.data[self.current_step,self.close_col] - self.data[self.current_step-1,self.close_col]) + self.cash*self.rf
+        return self.past_nav[-1] - self.past_nav[-2]
+        #return self.holding*(self.data[self.current_step,self.close_col] - self.data[self.current_step-1,self.close_col]) + self.cash*self.rf
     
 
     def step(self,action):
@@ -132,36 +151,35 @@ class TradingEnv(gym.Env):
         self._execute_trade(action)
         
         reward = self._calculate_reward()
-       
         
-        #update holdings log
-        temp_past_holdings = self.past_holdings
-        self.past_holdings[0:-1] = temp_past_holdings[1:]
-        self.past_holdings[-1] = self.holding
-
-        #update nav log
-        self.cash = self.cash* (1+self.rf)
-        self.nav = self.holding * self.data[self.current_step,self.close_col] + self.cash
-        temp_past_nav = self.past_nav
-        self.past_nav[0:-1] = temp_past_nav[1:]
-        self.past_nav[-1] = self.nav
-
+        
         self.current_step += 1
         obs = self._observe()
 
         done = self.nav <= 0 or self.current_step >= self.data.shape[0]
         
+        """
+        print("current step:" + str(self.current_step))
+        print("action")
+        print(action)
+        print("nav:" + str(self.nav))
+        print("equity:" + str(self.holding))
+        print("reward:" + str(reward))
+        print("done?" + str(done))
+        print('-----------------------')
+        """
+        
         return obs, reward, done, {} 
-
 
     
     def reset(self):
         self.past_holdings = np.zeros(self.back_looking)
-        self.past_nav = np.zeros(self.back_looking)
+        self.past_nav = np.ones(self.back_looking) * self.initial_capital
 
         self.holding = 0
         self.cash = self.initial_capital
         self.nav = self.initial_capital
+        
         self.current_step = self.back_looking
 
         return self._observe()

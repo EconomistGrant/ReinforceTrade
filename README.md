@@ -45,3 +45,7 @@ good reference:
 https://towardsdatascience.com/creating-a-custom-openai-gym-environment-for-stock-trading-be532be3910e
 https://github.com/notadamking/Stock-Trading-Environment/blob/master/env/StockTradingEnv.py 
 https://gym.openai.com/docs/
+
+# 1/12 Update
+trading env看起来是写好了 还行吧170行代码。。。。。。。。。。
+明天和fidelity开完会 下午debug一下 上一点真实数据 争取周末跑个模型试试看
