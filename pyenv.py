@@ -12,7 +12,7 @@ MAX = 10000
 MIN = -10000
 class TradingEnv(py_environment.PyEnvironment):
     """
-    A trading environment set up using OpenAI Gym
+    A trading environment set up using tf_agents.environments.py_environment
     Data are stored in numpy.array format
     
     

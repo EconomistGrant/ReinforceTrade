@@ -12,7 +12,7 @@ MAX = 10000
 MIN = -10000
 class TradingEnv(py_environment.PyEnvironment):
     """
-    A trading environment set up using TF.Agent.PyEnvironment
+    A trading environment set up using tf_agents.environments.py_environment
     Data are stored in numpy.array format
     
     
@@ -26,8 +26,10 @@ class TradingEnv(py_environment.PyEnvironment):
 
     Attributes
     ----------   
-    action_space:      first number: 0 = sell, 1 = hold, 2 = buy
-                       second number: percent of nav as trade size
+    action_space:      scalar value to fit DQN
+                       <1: sell, amount = action
+                       1<= action <=2 hold
+                       >2: buy, amount = action - 2 
     
     observation_space: inputs features + past holdings + past NAV, all having the length of back_looking
     current_step:      the timestep/row that the agent is currently at. Agent will observe up to (current_step - 1),
