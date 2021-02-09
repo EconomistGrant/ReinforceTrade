@@ -46,7 +46,7 @@ data['Date'] = pd.to_datetime(data['Date'])
 data_input = data.values[:,1:]
 #data_input = np.array([[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]])
 
-env = TradingEnv(data = data_input, rf = 0, back_looking = 4)
+env = TradingEnv(data = data_input, rf = 0.05/200, back_looking = 4)
 utils.validate_py_environment(env, episodes=5)
 
 train_env = tf_py_environment.TFPyEnvironment(env)
@@ -54,13 +54,14 @@ train_env = tf_py_environment.TFPyEnvironment(env)
 num_iterations = 100 # @param {type:"integer"}
 
 initial_collect_steps = 100  # @param {type:"integer"} 
-collect_steps_per_iteration = 1  # @param {type:"integer"}
+collect_steps_per_iteration = 100  # @param {type:"integer"}
+
 replay_buffer_max_length = 100000  # @param {type:"integer"}
 
 batch_size = 4  # @param {type:"integer"}
 learning_rate = 1e-3  # @param {type:"number"}
-log_interval = 200  # @param {type:"integer"}
 
+log_interval = 5  # @param {type:"integer"}
 num_eval_episodes = 10  # @param {type:"integer"}
 eval_interval = 10  # @param {type:"integer"}\
     
@@ -68,7 +69,7 @@ eval_interval = 10  # @param {type:"integer"}\
 q_net = q_network.QNetwork(
     train_env.observation_spec(),
     train_env.action_spec(),
-    fc_layer_params=(100,))
+    fc_layer_params=(100,50))
 
 agent = dqn_agent.DqnAgent(
     train_env.time_step_spec(),
@@ -105,13 +106,87 @@ def compute_avg_return(environment, policy, num_episodes=10):
   avg_return = total_return / num_episodes
   return avg_return.numpy()[0]
 
+'''
 for _ in range(5):
-    print(compute_avg_return(train_env, random_policy, num_eval_episodes))
+    print(compute_avg_return(train_env, agent.policy, num_eval_episodes))
+'''
 
 
+'''210209'''
+#%% Replay Buffer
+replay_buffer = tf_uniform_replay_buffer.TFUniformReplayBuffer(
+    data_spec=agent.collect_data_spec,
+    batch_size=train_env.batch_size,
+    max_length=replay_buffer_max_length)
 
+#%% Data Collection
+def collect_step(environment, policy, buffer):
+  time_step = environment.current_time_step()
+  action_step = policy.action(time_step)
+  next_time_step = environment.step(action_step.action)
+  traj = trajectory.from_transition(time_step, action_step, next_time_step)
 
+  # Add trajectory to the replay buffer
+  buffer.add_batch(traj)
 
+def collect_data(env, policy, buffer, steps):
+  for _ in range(steps):
+    collect_step(env, policy, buffer)
+
+collect_data(train_env, random_policy, replay_buffer, initial_collect_steps)
+
+dataset = replay_buffer.as_dataset(
+    num_parallel_calls=3, 
+    sample_batch_size=batch_size, 
+    num_steps=2).prefetch(3)
+
+iterator = iter(dataset)
+
+#%% Training
+#%%% Params
+agent.train = common.function(agent.train)
+# Reset the train step
+agent.train_step_counter.assign(0)
+
+# Evaluate the agent's policy once before training.
+avg_return = compute_avg_return(train_env, agent.policy, num_eval_episodes)
+
+returns = [avg_return]
+#%%% Run
+for _ in range(num_iterations):
+
+  # Collect a few steps using collect_policy and save to the replay buffer.
+  collect_data(train_env, agent.collect_policy, replay_buffer, collect_steps_per_iteration)
+
+  # Sample a batch of data from the buffer and update the agent's network.
+  experience, unused_info = next(iterator)
+  train_loss = agent.train(experience).loss
+  step = agent.train_step_counter.numpy()
+
+  if step % log_interval == 0:
+    print('step = {0}: loss = {1}'.format(step, train_loss))
+
+  if step % eval_interval == 0:
+    avg_return = compute_avg_return(train_env, agent.policy, num_eval_episodes)
+    print('step = {0}: Average Return = {1}'.format(step, avg_return))
+    returns.append(avg_return)
+
+#%% Random Run
+for _ in range(num_iterations):
+  # Collect a few steps using collect_policy and save to the replay buffer.
+  collect_data(train_env, random_policy, replay_buffer, collect_steps_per_iteration)
+  # Sample a batch of data from the buffer and update the agent's network.
+  step = agent.train_step_counter.numpy()
+  print(step)
+  
+  if step % eval_interval == 0:
+    avg_return = compute_avg_return(train_env,random_policy, num_eval_episodes)
+    print('step = {0}: Average Return = {1}'.format(step, avg_return))
+    returns.append(avg_return)
+    
+    
+
+    
 
 
 

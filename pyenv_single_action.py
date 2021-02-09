@@ -154,7 +154,6 @@ class TradingEnv(py_environment.PyEnvironment):
         info: dict
         diagnostic
         """
-        
         if self.current_step >= self.data.shape[0]:
             return TimeStep(StepType.LAST, np.float32(0), self._discount, np.zeros(shape = (self.back_looking,self.num_features+2), dtype = np.float64))
        
