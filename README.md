@@ -49,3 +49,22 @@ https://gym.openai.com/docs/
 # 1/12 Update
 trading env看起来是写好了 还行吧170行代码。。。。。。。。。。
 明天和fidelity开完会 下午debug一下 上一点真实数据 争取周末跑个模型试试看
+
+# 3/27 
+周末直接用torch搭一个dqn
+就先做discrete action space + simple reward
+然后用一个网络去predict best action
+然后迭代网络
+
+但是迭代要怎么迭代呢？
+首先观察，用网络做决策，观察reward，加入buffer
+在buffer里面的所有值，
+  next_state_values用target_net 去算next states * actions 的 Q net 的最大值
+  expected_state_action_values 就是上面的 next_state_values * GAMMA + reward
+  loss是两者之差
+
+
+
+周末跑通，有时间把action和reward抽象化
+然后优化dqn
+然后换别的算法/别的action reward方法

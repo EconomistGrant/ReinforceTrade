@@ -71,10 +71,16 @@ q_net = q_network.QNetwork(
     train_env.action_spec(),
     fc_layer_params=(100,50))
 
+target_q_network = q_network.QNetwork(
+    train_env.observation_spec(),
+    train_env.action_spec(),
+    fc_layer_params=(100,50))
+
 agent = dqn_agent.DqnAgent(
     train_env.time_step_spec(),
     train_env.action_spec(),
     q_network=q_net,
+    target_q_network = target_q_network,
     optimizer=tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate),
     td_errors_loss_fn=common.element_wise_squared_loss,
     train_step_counter=tf.Variable(0))
@@ -169,7 +175,7 @@ for _ in range(num_iterations):
   if step % eval_interval == 0:
     avg_return = compute_avg_return(train_env, agent.policy, num_eval_episodes)
     print('step = {0}: Average Return = {1}'.format(step, avg_return))
-    returns.append(avg_return)
+C:\Users\a\Desktop\work\2021_Spring\6.006 Algo\ass\ass0\tests.py    returns.append(avg_return)
 
 #%% Random Run
 for _ in range(num_iterations):
