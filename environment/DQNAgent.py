@@ -81,24 +81,26 @@ class DQNAgent(object):
         self.target_net.load_state_dict(self.policy_net.state_dict())
         
         self.buffer = ReplayBuffer(1000)
-
-        
         self.batch_size = batch_size
         self.gamma = 0.999 #discounting
         self.eps_start = 0.9 #explore
         self.eps_end = 0.05
-        self.eps_decay = 2000
+        self.eps_decay_steps = 2000
         
         self.optimizer = optim.RMSprop(self.policy_net.parameters())
         
-    def act(self,obs):
-        #this function is greedy, epsilon implemented in train
+    def act(self,state,eps):
+        ######
+        if random.random() < eps:
+            action_value = self.env.action_space.sample()
+            return torch.tensor(action_value).to(self.device).reshape(1)
         with torch.no_grad():
-            return self.policy_net(obs).max(1)[1] 
+            return self.policy_net(state).max(1)[1] 
         
     def optimize(self):
         if len(self.buffer) < self.batch_size: return
         
+        #sample from memory
         transitions = self.buffer.sample(self.batch_size)
         batch = Transition(*zip(*transitions))
         
@@ -112,14 +114,25 @@ class DQNAgent(object):
         action_batch = action_batch.reshape(action_batch.shape[0],-1)
         reward_batch = torch.cat(batch.reward)
         
+        # Q_table: num_batches * action_space_size
         Q_table = self.policy_net(state_batch)
+        
+        # Select the actions taken (recorded in buffer)
+        # The original action taken is by epsilon-greedy process with the net at that time
         state_action_values = Q_table.gather(1, action_batch)
         
+        
         next_state_values = torch.zeros(self.batch_size, device = self.device)
+        
+        
         next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0].detach()
         expected_state_action_values = (next_state_values * self.gamma) + reward_batch
         
+        # state_action_values: using policy net, calculate the values of the Q(s_t, a_t)
+        # exptected_state_action_values: using target net, calculate the values of r(s_t, a_t) + V(s_t+1)
+        
         loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1))
+
         self.optimizer.zero_grad()
         loss.backward()
         for param in self.policy_net.parameters():
@@ -127,38 +140,52 @@ class DQNAgent(object):
         self.optimizer.step()
         
         
-    def train(self):
-        for i_episode in range(100):
-            print(i_episode)
+    def train(self, 
+              n_episode = 100, 
+              evaluate_frequency = 5, #every x episode
+              optimize_frequency = 32,#every x steps, sample from buffer, optimize
+              ):
+        step = 0
+        eps = self.eps_start
+        for i_episode in range(n_episode):
             done = False
             obs = np.expand_dims(env.reset(),axis = 0)
             state = torch.from_numpy(obs).to(self.device)
             while not done:
-                #TODO: epsilon_greedy?
+                step += 1
+                if eps > self.eps_end:
+                    eps = self.eps_start - (self.eps_start - self.eps_end)*step/self.eps_decay_steps
                 #or stochastic decision: exponential-normalize action vector
-                action = self.act(state)
-                action_value = action.cpu().numpy()[0] #might be slow?
+                
+                #generate action
+                action = self.act(state,eps)
+                action_value = action.cpu().numpy()[0]
+                
+                #interact with environment
                 next_obs,reward,done,_ = env.step(action_value)
-
-                reward = torch.tensor([reward],device = self.device)
+                
                 if not done:
                     next_obs = np.expand_dims(next_obs,axis = 0)
                     next_state = torch.from_numpy(next_obs).to(self.device)
                 else:
                     next_state = None
-
+                
+                #record into buffer
+                reward = torch.tensor([reward],device = self.device)
                 self.buffer.push(state,action,next_state,reward)
 
+                
+                if step % optimize_frequency == 0:
+                    self.optimize()
+                    
+                #go to next step:    
                 state = next_state
-
-                #TODO: optimize_frequency
-                self.optimize()
-
-                #TODO: target_optimize_frequency
+            
+            #target network update
             if i_episode % 10 == 0:
                 self.target_net.load_state_dict(self.policy_net.state_dict())
-    
-            #TODO: evaluate frequence
+                
+            #evaluate policy
             if i_episode % 5 == 0:
                 print("Episode: " + str(i_episode))
                 self.evaluate()
@@ -174,15 +201,15 @@ class DQNAgent(object):
         state = torch.from_numpy(obs).to(self.device)
         while not done:
             #TODO: epsilon_greedy?
-            action = self.act(state)
+            action = self.act(state,0.05)
             action_value = action.cpu().numpy()[0] #might be slow?
             _,_,done,_ = self.env.step(action_value)
             nav.append(self.env.nav)
             actions.append(action_value)
         plt.plot(nav)
         plt.show()
-        plt.plot(actions)
-        plt.show()
+        #plt.plot(actions)
+        #aplt.show()
         
 
     def save(self,path):
