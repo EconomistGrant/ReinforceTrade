@@ -68,3 +68,12 @@ trading env看起来是写好了 还行吧170行代码。。。。。。。。�
 周末跑通，有时间把action和reward抽象化
 然后优化dqn
 然后换别的算法/别的action reward方法
+
+# 4/2
+dqn搭起来了也简单能运行了
+现在有两大问题：
+I 模型比较粗糙
+1. 模型本身：loss function，激活函数，epsilon-greedy还是直接用logistic正则化再采样，这些东西最好找到论文或者别人的项目看看
+2. 超参数：evaluate_frequency, optimize_frequence, target_update_frequency, learning rate, batch_size
+
+II 运行起来学不到东西

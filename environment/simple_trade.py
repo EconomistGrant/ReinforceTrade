@@ -81,9 +81,13 @@ class TradingEnv(gym.Env):
 
         trade_price =  self.data[self.current_step-1,self.close_col]
 
+        #original setup: 9 actions
         trade_type = action/4 -1
         trade_amount = (abs(trade_type) * self.nav)/trade_price
-
+        # 3 actions set up
+        #trade_type = action - 1
+        #trade_amount = (abs(trade_type) * self.nav * 0.1)/trade_price
+        
         if trade_type < 0:
             # sell, limit FOR NOW that net shorting values < nav
             cash = prev_cash + trade_amount * trade_price
